@@ -1,2 +1,2 @@
 # gotar
-A CLI tool like tar, written in Go. 
+A simpler tar written in Go. 
