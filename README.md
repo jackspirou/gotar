@@ -1,2 +1,2 @@
 # tarpack
-Pack files into a tarball for multiple build architectures.
+Automatically pack common files into a tarball for multiple build architectures.
