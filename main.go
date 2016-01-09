@@ -6,6 +6,15 @@ import (
 	"io"
 	"log"
 	"os"
+	"path"
+	"strings"
+
+	"github.com/kr/fs"
+)
+
+var (
+	fileNamesToPack   = []string{"readme", "license"}
+	allowedExtensions = []string{"", ".txt", ".md"}
 )
 
 func main() {
@@ -36,10 +45,35 @@ func tarball(filepaths ...string) error {
 		defer tw.Close()
 
 		// grab the paths that need to be added in
-		paths := []string{
-			fpath,
-			"README.md",
-			"LICENSE",
+		paths := []string{fpath}
+
+		w := fs.Walk(".")
+		w.Step()
+		for w.Step() {
+
+			fstat := w.Stat()
+			if fstat.IsDir() {
+				w.SkipDir()
+				continue
+			}
+			if w.Err() != nil {
+				return w.Err()
+			}
+
+			fname := fstat.Name()
+			ext := path.Ext(fname)
+			for _, allowed := range allowedExtensions {
+				if ext == allowed {
+					for _, fileToPack := range fileNamesToPack {
+						fnameWithoutExt := fname[:len(fstat.Name())-len(ext)]
+						if strings.ToLower(fnameWithoutExt) == fileToPack {
+							paths = append(paths, fname)
+							break
+						}
+					}
+					break
+				}
+			}
 		}
 
 		// add each file as needed into the current tar archive
@@ -48,8 +82,8 @@ func tarball(filepaths ...string) error {
 				log.Fatalln(err)
 			}
 		}
-
 	}
+
 	return nil
 }
 

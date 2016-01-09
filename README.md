@@ -1,2 +1,2 @@
-# gotar
-A simple way to pack files into a tarball for a release with multiple architecture builds.
+# tarpack
+Pack files into a tarball for multiple build architectures.
