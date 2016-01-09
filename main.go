@@ -3,6 +3,7 @@ package main
 import (
 	"archive/tar"
 	"compress/gzip"
+	"fmt"
 	"io"
 	"log"
 	"os"
@@ -28,6 +29,9 @@ func main() {
 
 func tarball(filepaths ...string) error {
 	for _, fpath := range filepaths {
+
+		// print for users
+		fmt.Println(fpath + ".tar.gz")
 
 		// set up the output file
 		file, err := os.Create(fpath + ".tar.gz")
