@@ -16,6 +16,8 @@ import (
 var (
 	fileNamesToPack   = []string{"readme", "license"}
 	allowedExtensions = []string{"", ".txt", ".md"}
+	osList            = []string{"darwin", "freebsd", "linux", "netbsd", "openbsd", "windows"}
+	archList          = []string{"386", "386.exe", "amd64", "amd64.exe", "arm"}
 )
 
 func main() {
@@ -47,7 +49,6 @@ func tarball(filepaths ...string) error {
 		defer tw.Close()
 
 		filepaths := []string{fpath}
-
 		w := fs.Walk(".")
 		w.Step()
 		for w.Step() {
@@ -88,16 +89,71 @@ func tarball(filepaths ...string) error {
 
 func addFile(tw *tar.Writer, path string) error {
 
+	// open a file, we will close it manually later
 	file, err := os.Open(path)
 	if err != nil {
 		return err
 	}
-	defer file.Close()
 
-	if stat, err := file.Stat(); err == nil {
+	// get info on that file
+	finfo, err := file.Stat()
+	if err != nil {
+		return err
+	}
+
+	// default the name of the file to its current name
+	name := finfo.Name()
+
+	// if the name of the file contains two "_" we can assume it is probably a
+	// default gox naming template convention of "{{.Dir}}_{{.OS}}_{{.Arch}}".
+	if nameslice := strings.Split(name, "_"); len(nameslice) == 3 {
+
+		// check the os name value is valid
+		for _, osname := range osList {
+			if nameslice[1] == osname {
+				name = nameslice[0]
+				break
+			}
+		}
+
+		// check the arch name value is valid
+		for i, arch := range archList {
+			if nameslice[2] == arch {
+				break
+			}
+			// if this is the last value in the slice, it means we have not matched
+			// any arch values, and maybe not os values, therefore default back to
+			// the original file name
+			if i == len(osList)-1 {
+				name = finfo.Name()
+			}
+		}
+
+		// if the name has changed, we will need to update file info
+		if name != finfo.Name() {
+
+			// first rename the binary to its normal name
+			if err := os.Rename(finfo.Name(), name); err != nil {
+				return err
+			}
+
+			// close the file
+			file.Close()
+
+			// open the renamed file
+			file, err = os.Open(name)
+			if err != nil {
+				return err
+			}
+
+			// update the file info
+			if finfo, err = file.Stat(); err != nil {
+				return err
+			}
+		}
 
 		// now lets create the header as needed for this file within the tarball
-		header, err := tar.FileInfoHeader(stat, stat.Name())
+		header, err := tar.FileInfoHeader(finfo, finfo.Name())
 		if err != nil {
 			return err
 		}
@@ -111,6 +167,14 @@ func addFile(tw *tar.Writer, path string) error {
 		if _, err := io.Copy(tw, file); err != nil {
 			return err
 		}
+
+		// remove the binary since we may have renamed it
+		if err := os.Remove(finfo.Name()); err != nil {
+			return err
+		}
 	}
+
+	// close the file
+	file.Close()
 	return nil
 }
